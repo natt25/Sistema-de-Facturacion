@@ -32,11 +32,11 @@ def close_db(exception):
 def seed(db):
     # Datos de ejemplo mínimos
     db.executemany("INSERT OR IGNORE INTO CLIENTE VALUES (?,?,?,?,?,?,?,?,?)", [
-        ("C00001","12345678","Ana","Pérez","999111222","ana@demo.com","Av. Uno","Cercado","Arequipa"),
-        ("C00002","87654321","Luis","Soto","999333444","luis@demo.com","Jr. Dos","Cayma","Arequipa"),
+        ("C00001","12345678","Ana","Pérez","999111222","ana@demo.com","Av. Aviación","Cercado","Arequipa"),
+        ("C00002","87654321","Luis","Soto","999333444","luis@demo.com","Jr. Unión","Cayma","Arequipa"),
     ])
     db.executemany("INSERT OR IGNORE INTO EMPRESA VALUES (?,?,?,?,?,?)", [
-        ("E0001","20123456789","Empresa ABC SAC","Av. Ejemplo 100","Cercado","Arequipa")
+        ("E0001","20123456789","Empresa ABC SAC","Av. Metropolitana 100","Cercado","Arequipa")
     ])
     db.executemany("INSERT OR IGNORE INTO VENDEDOR VALUES (?,?,?)", [
         ("V0001","María","Lopez"), ("V0002","Jorge","Torres")
