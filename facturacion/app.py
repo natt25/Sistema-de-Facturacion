@@ -71,15 +71,46 @@ def clientes():
 def clientes_nuevo():
     db = get_db()
     f = request.form
+
+    CODI = f["CODI"].strip()
+    DNI  = (f.get("DNI") or "").strip()
+    NOMB = (f.get("NOMB") or "").strip()
+    APEL = (f.get("APEL") or "").strip()
+    TELF = (f.get("TELF") or "").strip()
+    EMAIL= (f.get("EMAIL") or "").strip()
+    CALLE= (f.get("CALLE") or "").strip()
+    DIST = (f.get("DIST") or "").strip()
+    CIUD = (f.get("CIUD") or "").strip()
+
+    # Reglas mínimas
+    if not _not_empty(CODI, DNI, NOMB, APEL):
+        flash("CODI, DNI, NOMB y APEL son obligatorios.", "warning"); return redirect(url_for("clientes"))
+    if not valid_dni(DNI):
+        flash("DNI inválido (8 dígitos).", "warning"); return redirect(url_for("clientes"))
+    if TELF and not valid_telf(TELF):
+        flash("Teléfono inválido (6–15 dígitos).", "warning"); return redirect(url_for("clientes"))
+    if EMAIL and not valid_email(EMAIL):
+        flash("Email inválido.", "warning"); return redirect(url_for("clientes"))
+
+    # Unicidad
+    if db.execute("SELECT 1 FROM CLIENTE WHERE DNI = ?", (DNI,)).fetchone():
+        flash("DNI ya registrado.", "warning"); return redirect(url_for("clientes"))
+    if EMAIL and db.execute("SELECT 1 FROM CLIENTE WHERE EMAIL = ?", (EMAIL,)).fetchone():
+        flash("Email ya registrado.", "warning"); return redirect(url_for("clientes"))
+    if TELF and db.execute("SELECT 1 FROM CLIENTE WHERE TELF = ?", (TELF,)).fetchone():
+        flash("Teléfono ya registrado.", "warning"); return redirect(url_for("clientes"))
+
     try:
         db.execute("""INSERT INTO CLIENTE (CODI,DNI,NOMB,APEL,TELF,EMAIL,CALLE,DIST,CIUD)
                       VALUES (?,?,?,?,?,?,?,?,?)""",
-                   (f["CODI"], f["DNI"], f["NOMB"], f["APEL"], f["TELF"], f["EMAIL"], f["CALLE"], f["DIST"], f["CIUD"]))
+                   (CODI, DNI, NOMB, APEL, TELF, EMAIL, CALLE, DIST, CIUD))
         db.commit()
         flash("Cliente creado", "success")
     except sqlite3.IntegrityError as e:
-        flash(f"Error: {e}", "danger")
+        # Plan B: si por carrera concurrente pega UNIQUE, avisa igual
+        flash(f"Violación de unicidad: {e}", "danger")
     return redirect(url_for("clientes"))
+
 
 # --- Vendedores ---
 @app.route("/vendedores")
@@ -112,14 +143,31 @@ def productos():
 def productos_nuevo():
     db = get_db()
     f = request.form
+
+    CODT = (f.get("CODT") or "").strip()
+    NOMB = (f.get("NOMB") or "").strip()
+    UNID = (f.get("UNID") or "").strip()
+    PREC = (f.get("PREC") or "").strip()
+
+    if not _not_empty(CODT, NOMB, UNID, PREC):
+        flash("CODT, NOMB, UNID y PREC son obligatorios.", "warning"); return redirect(url_for("productos"))
+    if not valid_unidad(UNID):
+        flash("UNID inválida (1–10 caracteres).", "warning"); return redirect(url_for("productos"))
+    if not valid_precio(PREC):
+        flash("PREC inválido (número ≥ 0).", "warning"); return redirect(url_for("productos"))
+
+    if db.execute("SELECT 1 FROM PRODUCTO WHERE NOMB = ? AND UNID = ?", (NOMB, UNID)).fetchone():
+        flash("Producto duplicado (Nombre + Unidad).", "warning"); return redirect(url_for("productos"))
+
     try:
         db.execute("INSERT INTO PRODUCTO (CODT,NOMB,UNID,PREC) VALUES (?,?,?,?)",
-                   (f["CODT"], f["NOMB"], f["UNID"], f["PREC"]))
+                   (CODT, NOMB, UNID, float(PREC)))
         db.commit()
         flash("Producto creado", "success")
     except sqlite3.IntegrityError as e:
-        flash(f"Error: {e}", "danger")
+        flash(f"Violación de unicidad: {e}", "danger")
     return redirect(url_for("productos"))
+
 
 # --- Facturas (listado) ---
 @app.route("/facturas")
