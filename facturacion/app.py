@@ -2,6 +2,34 @@ import os, sqlite3
 from datetime import date
 from flask import Flask, g, render_template, request, redirect, url_for, flash
 
+import re  # <-- añade este import
+
+# --------- Validaciones comunes ----------
+def _not_empty(*vals):
+    return all(v is not None and str(v).strip() != "" for v in vals)
+
+def valid_dni(dni: str) -> bool:
+    return bool(re.fullmatch(r"\d{8}", dni or ""))
+
+def valid_telf(telf: str) -> bool:
+    return bool(re.fullmatch(r"\d{6,15}", telf or ""))  # ajusta rango si quieres
+
+def valid_email(email: str) -> bool:
+    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email or ""))
+
+def valid_ruc(ruc: str) -> bool:
+    return bool(re.fullmatch(r"\d{11}", ruc or ""))
+
+def valid_precio(precio: str) -> bool:
+    try:
+        return float(precio) >= 0
+    except:
+        return False
+
+def valid_unidad(unid: str) -> bool:
+    return len((unid or "").strip()) <= 10 and _not_empty(unid)
+
+
 DB_PATH = os.path.join(os.path.dirname(__file__), "facturacion.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 IGV_TASA = 0.18  # 18% Perú
@@ -42,13 +70,11 @@ def seed(db):
         ("V0001","María","Lopez"), ("V0002","Jorge","Torres")
     ])
     db.executemany("INSERT OR IGNORE INTO PRODUCTO VALUES (?,?,?,?)", [
-        ('P00001', 'Arroz extra', 'kg', 4.50),
-        ('P00002', 'Azúcar rubia', 'kg', 3.80),
-        ('P00003', 'Leche evaporada', 'lt', 5.20),
-        ('P00004', 'Aceite vegetal', 'lt', 9.90),
-        ('P00005', 'Pan de molde', 'paq', 7.50),
-        ('P00006', 'Huevos', 'doc', 10.00),
-        ('P00007', 'Agua mineral', 'bot', 2.50),
+        ('P00001','Cuaderno cuadriculado A4 100 hojas','pza',9.50),
+        ('P00002','Folder manila A4','pza',0.80),
+        ('P00003','Archivador palanca A4','pza',18.00),
+        ('P00004','Goma en barra 40 g','pza',3.50),
+        ('P00005','Plumón para pizarra negro','pza',4.00)
     ])
 
 # ---------- Rutas ----------
@@ -158,6 +184,9 @@ def productos_nuevo():
 
     if db.execute("SELECT 1 FROM PRODUCTO WHERE NOMB = ? AND UNID = ?", (NOMB, UNID)).fetchone():
         flash("Producto duplicado (Nombre + Unidad).", "warning"); return redirect(url_for("productos"))
+    if db.execute("SELECT 1 FROM PRODUCTO WHERE lower(NOMB)=lower(?)", (NOMB,)).fetchone():
+            flash("Ya existe un producto con ese nombre.", "warning")
+            return redirect(url_for("productos"))
 
     try:
         db.execute("INSERT INTO PRODUCTO (CODT,NOMB,UNID,PREC) VALUES (?,?,?,?)",
@@ -223,12 +252,12 @@ def facturas_crear():
         flash("Debe agregar al menos un producto.", "warning")
         return redirect(url_for("factura_nueva"))
 
-    # Calcular subtotales y totales
+    # Subtotal de líneas
     subtot = 0.0
     lineas = []
     for codt, cant_str in zip(codts, cants):
         cant = int(cant_str or 0)
-        if cant <= 0: 
+        if cant <= 0:
             continue
         fila = db.execute("SELECT PREC FROM PRODUCTO WHERE CODT=?", (codt,)).fetchone()
         if not fila:
@@ -238,23 +267,36 @@ def facturas_crear():
         subtot += precli
         lineas.append((nfac, codt, cant, precli))
 
-    igv = round(max(0.0, subtot) * IGV_TASA, 2)        # 1) IGV sobre SUBTOTAL
-    total_bruto = round(subtot + igv, 2)
-    desc_v = round(total_bruto * (des_pct/100.0), 2)    # 2) % sobre TOTAL BRUTO
-    tot = round(total_bruto - desc_v, 2)                # 3) Total final
-
-    if tot < 0:
-        flash("El descuento supera el total de la compra.", "warning")
+    # Descuento (%) sobre el SUBTOTAL
+    des_pct = float(f.get("DESCPCT", "0") or 0)
+    if des_pct < 0 or des_pct > 100:
+        flash("Descuento (%) inválido. Debe estar entre 0 y 100.", "warning")
         return redirect(url_for("factura_nueva"))
 
+    desc_v = round(max(0.0, subtot) * (des_pct / 100.0), 2)
+
+    # Base imponible luego del descuento
+    base = max(0.0, round(subtot - desc_v, 2))
+
+    # IGV sobre la BASE (ya descontada)
+    igv = round(base * IGV_TASA, 2)
+
+    # Total = base + IGV
+    tot = round(base + igv, 2)
+
+    if tot < 0:
+        flash("El descuento supera el subtotal.", "warning")
+        return redirect(url_for("factura_nueva"))
+
+    # Guardar (DESC se almacena como monto en S/)
+    db.execute("""INSERT INTO FACTURA
+                (NFAC,FECEM,FECVEN,"DESC",IGV,TOTFAC,CODI,EMPR,CODV)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+            (nfac, fecem, fecven, desc_v, igv, tot, codi, "E0001", codv))
+    db.executemany("""INSERT INTO DETALLE_FACTURA (NFAC,CODT,CANT,PRECLI)
+                    VALUES (?,?,?,?)""", lineas)
+    db.commit()
     try:
-        db.execute("""INSERT INTO FACTURA
-              (NFAC,FECEM,FECVEN,"DESC",IGV,TOTFAC,CODI,EMPR,CODV)
-              VALUES (?,?,?,?,?,?,?,?,?)""",
-           (nfac, fecem, fecven, desc_v, igv, tot, codi, "E0001", codv))
-        db.executemany("""INSERT INTO DETALLE_FACTURA (NFAC,CODT,CANT,PRECLI)
-                          VALUES (?,?,?,?)""", lineas)
-        db.commit()
         flash(f"Factura {nfac} creada. Total: {tot:.2f}", "success")
     except sqlite3.IntegrityError as e:
         flash(f"Error: {e}", "danger")

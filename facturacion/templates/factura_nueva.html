@@ -88,9 +88,9 @@ function updatePreview(){
   });
 
   const pct = parseFloat(document.querySelector('input[name="DESCPCT"]').value || '0');
-  const igv = Math.max(0, subtot * IGV_TASA);
-  const totalBruto = subtot + igv;
-  const descMonto = Math.max(0, totalBruto * (pct/100));
+  const descMonto = Math.max(0, subtot * (pct/100));
+  const base = Math.max(0, subtot - descMonto);
+  const igv = base * IGV_TASA;
 
   document.getElementById('descPreview').textContent = 'S/ ' + descMonto.toFixed(2);
 }
