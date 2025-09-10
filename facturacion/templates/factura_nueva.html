@@ -26,11 +26,10 @@
         {% for c in clientes %}<option value="{{ c.CODI }}">{{ c.nom }} ({{ c.CODI }})</option>{% endfor %}
       </select>
     </div>
+    <input type="hidden" name="EMPR" value="E0001">
     <div class="col-md-4">
       <label class="form-label">Empresa</label>
-      <select name="EMPR" class="form-select">
-        {% for e in empresas %}<option value="{{ e.EMPR }}">{{ e.RAZS }} ({{ e.EMPR }})</option>{% endfor %}
-      </select>
+      <input class="form-control" value="Empresa ABC SAC (E0001)" disabled>
     </div>
     <div class="col-md-4">
       <label class="form-label">Vendedor</label>

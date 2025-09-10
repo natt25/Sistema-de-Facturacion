@@ -81,27 +81,6 @@ def clientes_nuevo():
         flash(f"Error: {e}", "danger")
     return redirect(url_for("clientes"))
 
-# --- Empresas ---
-@app.route("/empresas")
-def empresas():
-    db = get_db()
-    rows = db.execute("SELECT * FROM EMPRESA ORDER BY EMPR").fetchall()
-    return render_template("empresas.html", rows=rows)
-
-@app.route("/empresas/nueva", methods=["POST"])
-def empresas_nueva():
-    db = get_db()
-    f = request.form
-    try:
-        db.execute("""INSERT INTO EMPRESA (EMPR,RUC,RAZS,CALLE,DIST,CIUD)
-                      VALUES (?,?,?,?,?,?)""",
-                   (f["EMPR"], f["RUC"], f["RAZS"], f["CALLE"], f["DIST"], f["CIUD"]))
-        db.commit()
-        flash("Empresa creada", "success")
-    except sqlite3.IntegrityError as e:
-        flash(f"Error: {e}", "danger")
-    return redirect(url_for("empresas"))
-
 # --- Vendedores ---
 @app.route("/vendedores")
 def vendedores():
@@ -165,11 +144,10 @@ def facturas():
 def factura_nueva():
     db = get_db()
     clientes  = db.execute("SELECT CODI, NOMB||' '||APEL AS nom FROM CLIENTE ORDER BY nom").fetchall()
-    empresas  = db.execute("SELECT EMPR, RAZS FROM EMPRESA ORDER BY RAZS").fetchall()
     vendedores= db.execute("SELECT CODV, NOMB||' '||APEL AS nom FROM VENDEDOR ORDER BY nom").fetchall()
     productos = db.execute("SELECT CODT, NOMB, UNID, PREC FROM PRODUCTO ORDER BY NOMB").fetchall()
     return render_template("factura_nueva.html", hoy=date.today().isoformat(),
-                           clientes=clientes, empresas=empresas, vendedores=vendedores, productos=productos)
+                           clientes=clientes, vendedores=vendedores, productos=productos)
 
 @app.post("/facturas/crear")
 def facturas_crear():
@@ -181,7 +159,7 @@ def facturas_crear():
     fecem  = f["FECEM"]
     fecven = f["FECVEN"]
     codi   = f["CODI"]
-    empr   = f["EMPR"]
+    empr   = "E0001"
     codv   = f["CODV"]
     desc_v = float(f.get("DESC","0") or 0)
 
