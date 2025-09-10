@@ -36,15 +36,19 @@ def seed(db):
         ("C00002","87654321","Luis","Soto","999333444","luis@demo.com","Jr. Dos","Cayma","Arequipa"),
     ])
     db.executemany("INSERT OR IGNORE INTO EMPRESA VALUES (?,?,?,?,?,?)", [
-        ("E0001","20123456789","Mi Empresa SAC","Av. Ejemplo 100","Cercado","Arequipa")
+        ("E0001","20123456789","Empresa ABC SAC","Av. Ejemplo 100","Cercado","Arequipa")
     ])
     db.executemany("INSERT OR IGNORE INTO VENDEDOR VALUES (?,?,?)", [
         ("V0001","María","Lopez"), ("V0002","Jorge","Torres")
     ])
     db.executemany("INSERT OR IGNORE INTO PRODUCTO VALUES (?,?,?,?)", [
-        ("P00001","Servicio de Soporte","hrs", "50.00"),
-        ("P00002","Mouse inalámbrico", "pza", "35.90"),
-        ("P00003","Licencia Software", "pza", "120.00"),
+        ('P00001', 'Arroz extra', 'kg', 4.50),
+        ('P00002', 'Azúcar rubia', 'kg', 3.80),
+        ('P00003', 'Leche evaporada', 'lt', 5.20),
+        ('P00004', 'Aceite vegetal', 'lt', 9.90),
+        ('P00005', 'Pan de molde', 'paq', 7.50),
+        ('P00006', 'Huevos', 'doc', 10.00),
+        ('P00007', 'Agua mineral', 'bot', 2.50),
     ])
 
 # ---------- Rutas ----------
