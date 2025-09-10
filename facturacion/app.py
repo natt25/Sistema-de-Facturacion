@@ -39,7 +39,7 @@ def seed(db):
         ("E0001","20123456789","Mi Empresa SAC","Av. Ejemplo 100","Cercado","Arequipa")
     ])
     db.executemany("INSERT OR IGNORE INTO VENDEDOR VALUES (?,?,?)", [
-        ("V0001","María","Lopez"), ("V0002","Jorge","Nina")
+        ("V0001","María","Lopez"), ("V0002","Jorge","Torres")
     ])
     db.executemany("INSERT OR IGNORE INTO PRODUCTO VALUES (?,?,?,?)", [
         ("P00001","Servicio de Soporte","hrs", "50.00"),
