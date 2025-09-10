@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-4">Panel principal</h1>
+<div class="row g-3">
+  <div class="col-md-4"><div class="card p-3"><h5>Clientes</h5><p class="display-6">{{ tot_clientes }}</p></div></div>
+  <div class="col-md-4"><div class="card p-3"><h5>Productos</h5><p class="display-6">{{ tot_productos }}</p></div></div>
+  <div class="col-md-4"><div class="card p-3"><h5>Facturas</h5><p class="display-6">{{ tot_facturas }}</p></div></div>
+</div>
+{% endblock %}

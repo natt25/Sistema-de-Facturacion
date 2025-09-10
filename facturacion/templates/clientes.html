@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">Clientes</h2>
+<form class="row g-2 mb-4" method="post" action="{{ url_for('clientes_nuevo') }}">
+  <div class="col-2"><input required name="CODI" placeholder="CODI" class="form-control"></div>
+  <div class="col-2"><input name="DNI" placeholder="DNI" class="form-control"></div>
+  <div class="col-2"><input name="NOMB" placeholder="Nombres" class="form-control"></div>
+  <div class="col-2"><input name="APEL" placeholder="Apellidos" class="form-control"></div>
+  <div class="col-2"><input name="TELF" placeholder="Teléfono" class="form-control"></div>
+  <div class="col-2"><input name="EMAIL" placeholder="Email" class="form-control"></div>
+  <div class="col-4"><input name="CALLE" placeholder="Calle" class="form-control mt-2"></div>
+  <div class="col-4"><input name="DIST" placeholder="Distrito" class="form-control mt-2"></div>
+  <div class="col-4"><input name="CIUD" placeholder="Ciudad" class="form-control mt-2"></div>
+  <div class="col-12"><button class="btn btn-primary mt-2">Agregar</button></div>
+</form>
+
+<table class="table table-striped">
+  <thead><tr><th>CODI</th><th>DNI</th><th>Cliente</th><th>Teléfono</th><th>Email</th><th>Dirección</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.CODI }}</td>
+      <td>{{ r.DNI }}</td>
+      <td>{{ r.NOMB }} {{ r.APEL }}</td>
+      <td>{{ r.TELF }}</td>
+      <td>{{ r.EMAIL }}</td>
+      <td>{{ r.CALLE }}, {{ r.DIST }} - {{ r.CIUD }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

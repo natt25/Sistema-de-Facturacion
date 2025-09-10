@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Facturas</h2>
+  <a class="btn btn-success" href="{{ url_for('factura_nueva') }}">Nueva factura</a>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>NFAC</th><th>Emisión</th><th>Cliente</th><th>Empresa</th><th>Vendedor</th>
+      <th>Desc</th><th>IGV</th><th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.NFAC }}</td>
+        <td>{{ r.FECEM }}</td>
+        <td>{{ r.cliente }}</td>
+        <td>{{ r.empresa }}</td>
+        <td>{{ r.vendedor }}</td>
+        <td>{{ '%.2f'|format(r['DESC']) }}</td>
+        <td>{{ '%.2f'|format(r.IGV) }}</td>
+        <td><strong>S/ {{ '%.2f'|format(r.TOTFAC) }}</strong></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

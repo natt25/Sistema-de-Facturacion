@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">Vendedores</h2>
+<form class="row g-2 mb-4" method="post" action="{{ url_for('vendedores_nuevo') }}">
+  <div class="col-2"><input required name="CODV" placeholder="CODV" class="form-control"></div>
+  <div class="col-4"><input name="NOMB" placeholder="Nombres" class="form-control"></div>
+  <div class="col-4"><input name="APEL" placeholder="Apellidos" class="form-control"></div>
+  <div class="col-2"><button class="btn btn-primary">Agregar</button></div>
+</form>
+
+<table class="table table-striped">
+  <thead><tr><th>CODV</th><th>Vendedor</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td>{{ r.CODV }}</td><td>{{ r.NOMB }} {{ r.APEL }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
