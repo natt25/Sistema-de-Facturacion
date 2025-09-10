@@ -209,7 +209,11 @@ def facturas_crear():
     codi   = f["CODI"]
     empr   = "E0001"
     codv   = f["CODV"]
-    desc_v = float(f.get("DESC","0") or 0)
+    # Leer % de descuento
+    des_pct = float(f.get("DESCPCT", "0") or 0)
+    if des_pct < 0 or des_pct > 100:
+        flash("Descuento (%) inválido. Debe estar entre 0 y 100.", "warning")
+        return redirect(url_for("factura_nueva"))
 
     # Items dinámicos: vienen como listas paralelas
     codts  = request.form.getlist("CODT[]")
@@ -234,14 +238,20 @@ def facturas_crear():
         subtot += precli
         lineas.append((nfac, codt, cant, precli))
 
-    igv = round((subtot - desc_v) * IGV_TASA, 2) if (subtot - desc_v) > 0 else 0.0
-    tot = round(subtot - desc_v + igv, 2)
+    igv = round(max(0.0, subtot) * IGV_TASA, 2)        # 1) IGV sobre SUBTOTAL
+    total_bruto = round(subtot + igv, 2)
+    desc_v = round(total_bruto * (des_pct/100.0), 2)    # 2) % sobre TOTAL BRUTO
+    tot = round(total_bruto - desc_v, 2)                # 3) Total final
+
+    if tot < 0:
+        flash("El descuento supera el total de la compra.", "warning")
+        return redirect(url_for("factura_nueva"))
 
     try:
         db.execute("""INSERT INTO FACTURA
-                      (NFAC,FECEM,FECVEN,"DESC",IGV,TOTFAC,CODI,EMPR,CODV)
-                      VALUES (?,?,?,?,?,?,?,?,?)""",
-                   (nfac, fecem, fecven, desc_v, igv, tot, codi, empr, codv))
+              (NFAC,FECEM,FECVEN,"DESC",IGV,TOTFAC,CODI,EMPR,CODV)
+              VALUES (?,?,?,?,?,?,?,?,?)""",
+           (nfac, fecem, fecven, desc_v, igv, tot, codi, "E0001", codv))
         db.executemany("""INSERT INTO DETALLE_FACTURA (NFAC,CODT,CANT,PRECLI)
                           VALUES (?,?,?,?)""", lineas)
         db.commit()

@@ -16,8 +16,9 @@
       <input type="date" name="FECVEN" class="form-control">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Descuento (S/)</label>
-      <input type="number" step="0.01" name="DESC" value="0" class="form-control">
+      <label class="form-label">Descuento (%)</label>
+      <input type="number" step="0.01" min="0" max="100" name="DESCPCT" value="0" class="form-control" oninput="updatePreview()">
+      <small class="text-muted">Equivale a: <span id="descPreview">S/ 0.00</span></small>
     </div>
 
     <div class="col-md-4">
@@ -26,11 +27,9 @@
         {% for c in clientes %}<option value="{{ c.CODI }}">{{ c.nom }} ({{ c.CODI }})</option>{% endfor %}
       </select>
     </div>
+
+    <!-- Empresa oculta si ya la fijas a E0001 -->
     <input type="hidden" name="EMPR" value="E0001">
-    <div class="col-md-4">
-      <label class="form-label">Empresa</label>
-      <input class="form-control" value="Empresa ABC SAC (E0001)" disabled>
-    </div>
     <div class="col-md-4">
       <label class="form-label">Vendedor</label>
       <select name="CODV" class="form-select">
@@ -42,7 +41,7 @@
   <hr class="my-4">
   <h5>Detalle</h5>
   <div id="items"></div>
-  <button type="button" class="btn btn-outline-primary my-2" onclick="addItem()">+ Agregar producto</button>
+  <button type="button" class="btn btn-outline-primary my-2" onclick="addItem(); updatePreview()">+ Agregar producto</button>
 
   <div class="mt-3">
     <button class="btn btn-success">Guardar factura</button>
@@ -57,22 +56,46 @@ function addItem(){
   div.innerHTML = `
     <div class="col-md-6">
       <label class="form-label">Producto</label>
-      <select name="CODT[]" class="form-select">
+      <select name="CODT[]" class="form-select" onchange="updatePreview()">
         {% for p in productos %}
-          <option value="{{ p.CODT }}">{{ p.NOMB }} ({{ p.UNID }}) - S/ {{ p.PREC }}</option>
+          <option value="{{ p.CODT }}" data-precio="{{ p.PREC }}">{{ p.NOMB }} ({{ p.UNID }}) - S/ {{ p.PREC }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="col-md-3">
       <label class="form-label">Cantidad</label>
-      <input type="number" min="1" value="1" name="CANT[]" class="form-control">
+      <input type="number" min="1" value="1" name="CANT[]" class="form-control" oninput="updatePreview()">
     </div>
     <div class="col-md-3">
-      <button type="button" class="btn btn-outline-danger" onclick="this.closest('.row').remove()">Quitar</button>
+      <button type="button" class="btn btn-outline-danger" onclick="this.closest('.row').remove(); updatePreview()">Quitar</button>
     </div>
   `;
   document.getElementById('items').appendChild(div);
 }
+
+const IGV_TASA = 0.18;
+
+function updatePreview(){
+  const rows = document.querySelectorAll('#items .row');
+  let subtot = 0;
+  rows.forEach(r => {
+    const sel = r.querySelector('select[name="CODT[]"]');
+    const input = r.querySelector('input[name="CANT[]"]');
+    if(!sel || !input) return;
+    const precio = parseFloat(sel.options[sel.selectedIndex].dataset.precio || '0');
+    const cant = parseInt(input.value || '0');
+    if(cant > 0) subtot += precio * cant;
+  });
+
+  const pct = parseFloat(document.querySelector('input[name="DESCPCT"]').value || '0');
+  const igv = Math.max(0, subtot * IGV_TASA);
+  const totalBruto = subtot + igv;
+  const descMonto = Math.max(0, totalBruto * (pct/100));
+
+  document.getElementById('descPreview').textContent = 'S/ ' + descMonto.toFixed(2);
+}
+
 addItem();
+updatePreview();
 </script>
 {% endblock %}
