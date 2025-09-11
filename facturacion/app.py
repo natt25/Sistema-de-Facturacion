@@ -383,6 +383,10 @@ def factura_pdf(nfac):
     txt(f"{cab['cliente']}  (DNI: {cab['DNI']})", x_m, y); y -= 5*mm
     txt(f"Dirección: {cab['c_calle']}, {cab['c_dist']} - {cab['c_ciud']}", x_m, y); y -= 8*mm
 
+    # Vendedor
+    txt("Vendedor:", x_m, y, 10, True); y -= 5*mm
+    txt(f"{cab['vendedor']}  (Código: {cab['CODV']})", x_m, y); y -= 8*mm
+
     # === Guías de columnas ===
     TABLE_L = x_m                  # borde izquierdo del cuadro
     TABLE_R = W - x_m              # borde derecho del cuadro
