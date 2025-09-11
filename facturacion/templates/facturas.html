@@ -9,12 +9,13 @@
   <thead>
     <tr>
       <th>NFAC</th><th>Emisión</th><th>Cliente</th><th>Empresa</th><th>Vendedor</th>
-      <th>Desc</th><th>IGV</th><th>Total</th>
+      <th>Desc</th><th>IGV</th><th>Total</th><th>Acciones</th>
     </tr>
   </thead>
   <tbody>
     {% for r in rows %}
       <tr>
+        <tr>
         <td>{{ r.NFAC }}</td>
         <td>{{ r.FECEM }}</td>
         <td>{{ r.cliente }}</td>
@@ -23,6 +24,11 @@
         <td>{{ '%.2f'|format(r['DESC']) }}</td>
         <td>{{ '%.2f'|format(r.IGV) }}</td>
         <td><strong>S/ {{ '%.2f'|format(r.TOTFAC) }}</strong></td>
+        <td>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('factura_pdf', nfac=r.NFAC) }}">
+            PDF
+          </a>
+        </td>
       </tr>
     {% endfor %}
   </tbody>

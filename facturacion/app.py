@@ -2,7 +2,15 @@ import os, sqlite3
 from datetime import date
 from flask import Flask, g, render_template, request, redirect, url_for, flash
 
-import re  # <-- añade este import
+import re
+
+from flask import send_file  # <-- añade esto
+import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+
 
 # --------- Validaciones comunes ----------
 def _not_empty(*vals):
@@ -302,6 +310,119 @@ def facturas_crear():
         flash(f"Error: {e}", "danger")
 
     return redirect(url_for("facturas"))
+
+@app.get("/facturas/<nfac>/pdf")
+def factura_pdf(nfac):
+    db = get_db()
+
+    # Cabecera de factura: FACTURA + CLIENTE + EMPRESA + VENDEDOR
+    cab = db.execute("""
+        SELECT F.NFAC, F.FECEM, F.FECVEN, F."DESC" AS DESC_M, F.IGV, F.TOTFAC,
+               C.CODI, C.NOMB||' '||C.APEL AS cliente, C.DNI, C.CALLE AS c_calle, C.DIST AS c_dist, C.CIUD AS c_ciud,
+               E.EMPR, E.RAZS, E.RUC, E.CALLE AS e_calle, E.DIST AS e_dist, E.CIUD AS e_ciud,
+               V.CODV, V.NOMB||' '||V.APEL AS vendedor
+        FROM FACTURA F
+        JOIN CLIENTE  C ON C.CODI=F.CODI
+        JOIN VENDEDOR V ON V.CODV=F.CODV
+        JOIN EMPRESA  E ON E.EMPR=F.EMPR
+        WHERE F.NFAC=?
+    """, (nfac,)).fetchone()
+
+    if not cab:
+        flash("Factura no encontrada", "warning")
+        return redirect(url_for("facturas"))
+
+    # Detalle de líneas
+    det = db.execute("""
+        SELECT D.NFAC, D.CODT, P.NOMB AS producto, D.CANT, D.PRECLI
+        FROM DETALLE_FACTURA D
+        JOIN PRODUCTO P ON P.CODT = D.CODT
+        WHERE D.NFAC=?
+        ORDER BY P.NOMB
+    """, (nfac,)).fetchall()
+
+    # Subtotal calculado a partir de PRECLI (coherente con el almacenamiento)
+    subtot = sum(float(r["PRECLI"]) for r in det)
+    desc_m = float(cab["DESC_M"])  # monto de descuento guardado
+    igv    = float(cab["IGV"])
+    total  = float(cab["TOTFAC"])
+    base   = max(0.0, round(subtot - desc_m, 2))   # tu regla actual: descuento sobre subtotal, IGV sobre base
+
+    # --- Componer PDF ---
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    W, H = A4
+    x_m, y = 20*mm, H - 20*mm
+
+    def draw_text(txt, x, y, size=10, bold=False):
+        if bold:
+            c.setFont("Helvetica-Bold", size)
+        else:
+            c.setFont("Helvetica", size)
+        c.drawString(x, y, txt)
+
+    # Encabezado empresa
+    draw_text(cab["RAZS"], x_m, y, 14, bold=True); y -= 6*mm
+    draw_text(f"RUC: {cab['RUC']}", x_m, y); y -= 5*mm
+    draw_text(f"Dirección: {cab['e_calle']}, {cab['e_dist']} - {cab['e_ciud']}", x_m, y); y -= 10*mm
+
+    # Título y datos de factura
+    draw_text(f"FACTURA N° {cab['NFAC']}", x_m, y, 13, bold=True); y -= 6*mm
+    draw_text(f"Fecha de emisión: {cab['FECEM'] or ''}", x_m, y); y -= 5*mm
+    if cab["FECVEN"]:
+        draw_text(f"Fecha de vencimiento: {cab['FECVEN']}", x_m, y); y -= 6*mm
+    else:
+        y -= 3*mm
+
+    # Datos del cliente
+    draw_text("Cliente:", x_m, y, bold=True); y -= 5*mm
+    draw_text(f"{cab['cliente']}  (DNI: {cab['DNI']})", x_m, y); y -= 5*mm
+    draw_text(f"Dirección: {cab['c_calle']}, {cab['c_dist']} - {cab['c_ciud']}", x_m, y); y -= 8*mm
+
+    # Tabla de detalle
+    # Cabecera
+    c.setFillColor(colors.black)
+    c.rect(x_m, y-6*mm, W-2*x_m, 8*mm, stroke=1, fill=0)
+    draw_text("Código",  x_m + 2*mm, y-2*mm, 10, True)
+    draw_text("Producto",x_m + 30*mm, y-2*mm, 10, True)
+    draw_text("Cant.",   x_m + 120*mm, y-2*mm, 10, True)
+    draw_text("P. Unit", x_m + 135*mm, y-2*mm, 10, True)
+    draw_text("Subtotal",x_m + 160*mm, y-2*mm, 10, True)
+    y -= 10*mm
+
+    # Filas
+    for r in det:
+        punit = (float(r["PRECLI"]) / float(r["CANT"])) if r["CANT"] else 0.0
+        draw_text(r["CODT"], x_m + 2*mm, y)
+        draw_text(r["producto"][:40], x_m + 30*mm, y)
+        draw_text(str(r["CANT"]), x_m + 120*mm, y)
+        draw_text(f"S/ {punit:.2f}", x_m + 135*mm, y)
+        draw_text(f"S/ {float(r['PRECLI']):.2f}", x_m + 160*mm, y)
+        y -= 6*mm
+        if y < 40*mm:  # salto de página simple
+            c.showPage()
+            y = H - 30*mm
+
+    # Totales
+    y -= 4*mm
+    c.line(x_m + 120*mm, y, W - 20*mm, y); y -= 2*mm
+    draw_text(f"Subtotal:    S/ {subtot:.2f}", x_m + 125*mm, y); y -= 5*mm
+    draw_text(f"Descuento:   S/ {desc_m:.2f}", x_m + 125*mm, y); y -= 5*mm
+    draw_text(f"Base:        S/ {base:.2f}",   x_m + 125*mm, y); y -= 5*mm
+    draw_text(f"IGV (18%):   S/ {igv:.2f}",   x_m + 125*mm, y); y -= 5*mm
+    draw_text(f"TOTAL:       S/ {total:.2f}", x_m + 125*mm, y, 12, True)
+
+    # Pie
+    c.setFont("Helvetica-Oblique", 9)
+    c.drawString(x_m, 15*mm, f"Vendedor: {cab['vendedor']}  |  Generado por el sistema de facturación")
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+
+    filename = f"Factura_{cab['NFAC']}.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
