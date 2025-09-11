@@ -72,7 +72,7 @@ def seed(db):
         ("C00002","87654321","Luis","Soto","999333444","luis@demo.com","Jr. Unión","Cayma","Arequipa"),
     ])
     db.executemany("INSERT OR IGNORE INTO EMPRESA VALUES (?,?,?,?,?,?)", [
-        ("E0001","20123456789","Empresa ABC SAC","Av. Metropolitana 100","Cercado","Arequipa")
+    ("E0001","20123456789","Librería Estudiantil SAC","Av. Metropolitana 100","Cercado","Arequipa")
     ])
     db.executemany("INSERT OR IGNORE INTO VENDEDOR VALUES (?,?,?)", [
         ("V0001","María","Lopez"), ("V0002","Jorge","Torres")
@@ -346,7 +346,7 @@ def factura_pdf(nfac):
     desc_m = float(cab["DESC_M"])  # monto de descuento guardado
     igv    = float(cab["IGV"])
     total  = float(cab["TOTFAC"])
-    base   = max(0.0, round(subtot - desc_m, 2))   # tu regla actual: descuento sobre subtotal, IGV sobre base
+    base   = max(0.0, round(subtot - desc_m, 2))   # descuento sobre subtotal, IGV sobre base
 
     # --- Componer PDF ---
     buffer = io.BytesIO()
@@ -354,71 +354,97 @@ def factura_pdf(nfac):
     W, H = A4
     x_m, y = 20*mm, H - 20*mm
 
-    def draw_text(txt, x, y, size=10, bold=False):
-        if bold:
-            c.setFont("Helvetica-Bold", size)
-        else:
-            c.setFont("Helvetica", size)
+    def txt(txt, x, y, size=10, bold=False):
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
         c.drawString(x, y, txt)
 
+    def right(txt_str, x, y, size=10, bold=False):
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        c.drawRightString(x, y, txt_str)
+
+    def money(v):  # S/ con 2 decimales
+        return f"S/ {float(v):,.2f}".replace(",", "_").replace(".", ",").replace("_",".")
+
     # Encabezado empresa
-    draw_text(cab["RAZS"], x_m, y, 14, bold=True); y -= 6*mm
-    draw_text(f"RUC: {cab['RUC']}", x_m, y); y -= 5*mm
-    draw_text(f"Dirección: {cab['e_calle']}, {cab['e_dist']} - {cab['e_ciud']}", x_m, y); y -= 10*mm
+    txt(cab["RAZS"], x_m, y, 14, True); y -= 6*mm
+    txt(f"RUC: {cab['RUC']}", x_m, y); y -= 5*mm
+    txt(f"Dirección: {cab['e_calle']}, {cab['e_dist']} - {cab['e_ciud']}", x_m, y); y -= 10*mm
 
     # Título y datos de factura
-    draw_text(f"FACTURA N° {cab['NFAC']}", x_m, y, 13, bold=True); y -= 6*mm
-    draw_text(f"Fecha de emisión: {cab['FECEM'] or ''}", x_m, y); y -= 5*mm
+    txt(f"FACTURA N° {cab['NFAC']}", x_m, y, 13, True); y -= 6*mm
+    txt(f"Fecha de emisión: {cab['FECEM'] or ''}", x_m, y); y -= 5*mm
     if cab["FECVEN"]:
-        draw_text(f"Fecha de vencimiento: {cab['FECVEN']}", x_m, y); y -= 6*mm
+        txt(f"Fecha de vencimiento: {cab['FECVEN']}", x_m, y); y -= 6*mm
     else:
         y -= 3*mm
 
     # Datos del cliente
-    draw_text("Cliente:", x_m, y, bold=True); y -= 5*mm
-    draw_text(f"{cab['cliente']}  (DNI: {cab['DNI']})", x_m, y); y -= 5*mm
-    draw_text(f"Dirección: {cab['c_calle']}, {cab['c_dist']} - {cab['c_ciud']}", x_m, y); y -= 8*mm
+    txt("Cliente:", x_m, y, 10, True); y -= 5*mm
+    txt(f"{cab['cliente']}  (DNI: {cab['DNI']})", x_m, y); y -= 5*mm
+    txt(f"Dirección: {cab['c_calle']}, {cab['c_dist']} - {cab['c_ciud']}", x_m, y); y -= 8*mm
 
-    # Tabla de detalle
-    # Cabecera
-    c.setFillColor(colors.black)
-    c.rect(x_m, y-6*mm, W-2*x_m, 8*mm, stroke=1, fill=0)
-    draw_text("Código",  x_m + 2*mm, y-2*mm, 10, True)
-    draw_text("Producto",x_m + 30*mm, y-2*mm, 10, True)
-    draw_text("Cant.",   x_m + 120*mm, y-2*mm, 10, True)
-    draw_text("P. Unit", x_m + 135*mm, y-2*mm, 10, True)
-    draw_text("Subtotal",x_m + 160*mm, y-2*mm, 10, True)
+    # === Guías de columnas ===
+    TABLE_L = x_m                  # borde izquierdo del cuadro
+    TABLE_R = W - x_m              # borde derecho del cuadro
+    PAD     = 4*mm                 # padding interno
+
+    X_COD   = TABLE_L + PAD
+    X_PROD  = TABLE_L + 30*mm
+    X_CANT  = TABLE_R - 62*mm      # columna numérica 1 (derecha)
+    X_PUNIT = TABLE_R - 36*mm      # columna numérica 2 (derecha)
+    X_SUBT  = TABLE_R - PAD        # >>> columna final (derecha absoluta)
+
+    # Columnas de totales (etiqueta y valor)
+    LBL_X = X_PUNIT - 10*mm        # etiquetas de totales
+    VAL_X = X_SUBT                 # importes de totales (misma X que Subtotal de la tabla)
+
+    # --- Cabecera de tabla ---
+    c.rect(TABLE_L, y-6*mm, TABLE_R - TABLE_L, 8*mm, stroke=1, fill=0)
+    txt("Código",    X_COD,  y-2*mm, 10, True)
+    txt("Producto",  X_PROD, y-2*mm, 10, True)
+    right("Cant.",   X_CANT, y-2*mm, 10, True)
+    right("P. Unit", X_PUNIT,y-2*mm, 10, True)
+    right("Subtotal",X_SUBT, y-2*mm, 10, True)
     y -= 10*mm
 
-    # Filas
+    # --- Filas de detalle ---
     for r in det:
-        punit = (float(r["PRECLI"]) / float(r["CANT"])) if r["CANT"] else 0.0
-        draw_text(r["CODT"], x_m + 2*mm, y)
-        draw_text(r["producto"][:40], x_m + 30*mm, y)
-        draw_text(str(r["CANT"]), x_m + 120*mm, y)
-        draw_text(f"S/ {punit:.2f}", x_m + 135*mm, y)
-        draw_text(f"S/ {float(r['PRECLI']):.2f}", x_m + 160*mm, y)
+        cant   = int(r["CANT"])
+        precli = float(r["PRECLI"])
+        punit  = (precli / cant) if cant else 0.0
+
+        txt(r["CODT"], X_COD, y)
+        txt((r["producto"] or "")[:60], X_PROD, y)
+        right(str(cant),     X_CANT,  y)
+        right(money(punit),  X_PUNIT, y)
+        right(money(precli), X_SUBT,  y)
+
         y -= 6*mm
-        if y < 40*mm:  # salto de página simple
+        if y < 45*mm:
             c.showPage()
             y = H - 30*mm
+            # (si quieres, reimprime la cabecera usando las mismas X)
 
-    # Totales
-    y -= 4*mm
-    c.line(x_m + 120*mm, y, W - 20*mm, y); y -= 2*mm
-    draw_text(f"Subtotal:    S/ {subtot:.2f}", x_m + 125*mm, y); y -= 5*mm
-    draw_text(f"Descuento:   S/ {desc_m:.2f}", x_m + 125*mm, y); y -= 5*mm
-    draw_text(f"Base:        S/ {base:.2f}",   x_m + 125*mm, y); y -= 5*mm
-    draw_text(f"IGV (18%):   S/ {igv:.2f}",   x_m + 125*mm, y); y -= 5*mm
-    draw_text(f"TOTAL:       S/ {total:.2f}", x_m + 125*mm, y, 12, True)
+    # --- Totales (separador + filas alineadas) ---
+    y -= 2*mm  # respiro debajo de la tabla
 
-    # Pie
-    c.setFont("Helvetica-Oblique", 9)
-    c.drawString(x_m, 15*mm, f"Vendedor: {cab['vendedor']}  |  Generado por el sistema de facturación")
+    SEP_GAP = 3.5*mm      # distancia entre la línea y el primer renglón de texto
+    c.setLineWidth(0.6)   # línea más delgada
+    c.line(LBL_X, y + SEP_GAP, X_SUBT, y + SEP_GAP)  # no cruza el texto
+
+    # ahora imprime los totales (todos alineados con VAL_X)
+    txt("Subtotal:",  LBL_X, y);               right(money(subtot), VAL_X, y); y -= 5*mm
+    txt("Descuento:", LBL_X, y);               right(money(desc_m), VAL_X, y); y -= 5*mm
+    txt("Base:",      LBL_X, y);               right(money(base),   VAL_X, y); y -= 5*mm
+    txt(f"IGV ({int(IGV_TASA*100)}%):", LBL_X, y); right(money(igv), VAL_X, y); y -= 6*mm
+
+    txt("TOTAL:", LBL_X, y, 12, True)
+    right(money(total), VAL_X, y, 12, True)
+
+        # --- Cerrar y enviar PDF ---
     c.showPage()
     c.save()
     buffer.seek(0)
-
     filename = f"Factura_{cab['NFAC']}.pdf"
     return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
