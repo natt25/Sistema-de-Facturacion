@@ -66,7 +66,7 @@ def close_db(exception):
     if db: db.close()
 
 def seed(db):
-    # Datos de ejemplo mínimos
+    # Datos de ejemplo 
     db.executemany("INSERT OR IGNORE INTO CLIENTE VALUES (?,?,?,?,?,?,?,?,?)", [
         ("C00001","12345678","Ana","Pérez","999111222","ana@demo.com","Av. Aviación","Cercado","Arequipa"),
         ("C00002","87654321","Luis","Soto","999333444","luis@demo.com","Jr. Unión","Cayma","Arequipa"),
@@ -224,7 +224,7 @@ def facturas():
     rows = db.execute(q).fetchall()
     return render_template("facturas.html", rows=rows)
 
-# --- Nueva factura (form + alta) ---
+# --- Nueva factura ---
 @app.route("/facturas/nueva")
 def factura_nueva():
     db = get_db()
@@ -427,10 +427,9 @@ def factura_pdf(nfac):
         if y < 45*mm:
             c.showPage()
             y = H - 30*mm
-            # (si quieres, reimprime la cabecera usando las mismas X)
 
-    # --- Totales (separador + filas alineadas) ---
-    y -= 2*mm  # respiro debajo de la tabla
+    # --- Totales ---
+    y -= 2*mm 
 
     SEP_GAP = 3.5*mm      # distancia entre la línea y el primer renglón de texto
     c.setLineWidth(0.6)   # línea más delgada
